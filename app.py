@@ -10,6 +10,7 @@ from logging import Formatter, FileHandler
 from forms import *
 from flask_migrate import Migrate
 import sys
+import re
 from models import db, Show, Venue, Artist
 
 
@@ -40,6 +41,13 @@ def format_datetime(value, format='medium'):
 
 app.jinja_env.filters['datetime'] = format_datetime
 
+# ----------------------------------------------------------------------------#
+# AutoFormatting
+# ----------------------------------------------------------------------------#
+def formaturl(url):
+    if not re.match('(?:http|https)://', url):
+        return 'http://{}'.format(url)
+    return url
 
 # ----------------------------------------------------------------------------#
 # Controllers.
@@ -98,7 +106,7 @@ def show_venue(venue_id):
     venue = Venue.query.get(venue_id)
     # venue_upcoming_shows = [show for show in venue.shows if show.start_time > datetime.today()]
     # Review: Use Join statement to retrieve Upcoming shows
-    venue_upcoming_shows = Show.query.filter_by(venue_id=venue_id).filter(Show.start_time > datetime.today())
+    venue_upcoming_shows = Show.query.join(Venue).filter(Show.venue_id==venue_id).filter(Show.start_time > datetime.today())
 
     upcoming_shows = []
     for show in venue_upcoming_shows:
@@ -111,7 +119,7 @@ def show_venue(venue_id):
     # Review: Use Join statement to retrieve Past shows
     # Since venue_id is used as foreign key to join tables Venue and Show, querying on venue_id should
     # help us narrow down the list from Venues table
-    venue_past_shows = Show.query.filter_by(venue_id=venue_id).filter(Show.start_time < datetime.today())
+    venue_past_shows = Show.query.join(Venue).filter(Show.venue_id==venue_id).filter(Show.start_time < datetime.today())
 
     past_shows = []
     for show in venue_past_shows:
@@ -157,7 +165,6 @@ def create_venue_submission():
     error = False
 
     try:
-
         venue = Venue(
           name=request.form['name'],
           city=request.form['city'],
@@ -165,9 +172,9 @@ def create_venue_submission():
           address=request.form['address'],
           phone=request.form['phone'],
           genres=request.form.getlist('genres'),
-          facebook_link=request.form.get('facebook_link'),
-          website=request.form.get('website'),
-          image_link=request.form.get('image_link'),
+          facebook_link=formaturl(request.form.get('facebook_link')),
+          website=formaturl(request.form.get('website')),
+          image_link=formaturl(request.form.get('image_link')),
           seeking_talent=request.form.get('seeking_talent') == 'y',
           seeking_description=request.form.get('seeking_description')
         )
@@ -261,7 +268,7 @@ def show_artist(artist_id):
     # Since artist_id is used as foreign key to join tables Artist and Show, querying on artist_id should
     # help us narrow down the list from Artists table
 
-    artist_upcoming_shows = Show.query.filter_by(artist_id=artist_id).filter(Show.start_time > datetime.today())
+    artist_upcoming_shows = Show.query.join(Artist).filter(Show.artist_id==artist_id).filter(Show.start_time > datetime.today())
 
     upcoming_shows = []
     for show in artist_upcoming_shows:
@@ -271,7 +278,7 @@ def show_artist(artist_id):
                                'start_time': show.start_time.isoformat()})
 
     # artist_past_shows = [show for show in artist.shows if show.start_time < datetime.today()]
-    artist_past_shows = Show.query.filter_by(artist_id=artist_id).filter(Show.start_time < datetime.today())
+    artist_past_shows = Show.query.join(Artist).filter(Show.artist_id==artist_id).filter(Show.start_time < datetime.today())
 
     past_shows = []
     for show in artist_past_shows:
@@ -408,9 +415,9 @@ def create_artist_submission():
           state=request.form['state'],
           phone=request.form['phone'],
           genres=request.form.getlist('genres'),
-          image_link=request.form.get('image_link'),
-          facebook_link=request.form.get('facebook_link'),
-          website=request.form.get('website'),
+          image_link=formaturl(request.form.get('image_link')),
+          facebook_link=formaturl(request.form.get('facebook_link')),
+          website=formaturl(request.form.get('website')),
           seeking_venue=request.form.get('seeking_venue') == 'y',
           seeking_description=request.form.get('seeking_description')
         )
