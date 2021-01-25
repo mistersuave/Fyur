@@ -1,19 +1,16 @@
 # ----------------------------------------------------------------------------#
 # Imports
 # ----------------------------------------------------------------------------#
-
-import json
 import dateutil.parser
 import babel
 from flask import Flask, render_template, request, Response, flash, redirect, url_for
 from flask_moment import Moment
-from flask_sqlalchemy import SQLAlchemy
 import logging
 from logging import Formatter, FileHandler
-from flask_wtf import Form
 from forms import *
 from flask_migrate import Migrate
 import sys
+from models import db, Show, Venue, Artist
 
 
 # ----------------------------------------------------------------------------#
@@ -23,77 +20,11 @@ import sys
 app = Flask(__name__)
 moment = Moment(app)
 app.config.from_object('config')
-db = SQLAlchemy(app)
-
-
+db.init_app(app)
 migrate = Migrate(app, db)
-#db.create_all()
 
 # TODO: connect to a local postgresql database
-
-# ----------------------------------------------------------------------------#
-# Models.
-# ----------------------------------------------------------------------------#
-class Show(db.Model):
-    __tablename__ = 'show'
-
-    id = db.Column(db.Integer, primary_key=True)
-
-    artist = db.relationship('Artist')
-    artist_id = db.Column(db.Integer, db.ForeignKey('artist.id'), nullable=False)
-
-    venue = db.relationship('Venue')
-    venue_id = db.Column(db.Integer, db.ForeignKey('venue.id', ondelete='CASCADE'), nullable=False)
-
-    start_time = db.Column(db.DateTime, nullable=False)
-
-class Venue(db.Model):
-    __tablename__ = 'venue'
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String)
-    city = db.Column(db.String())
-    state = db.Column(db.String())
-    address = db.Column(db.String())
-    phone = db.Column(db.String())
-    image_link = db.Column(db.String())
-    facebook_link = db.Column(db.String())
-
-    # TODO: implement any missing fields, as a database migration using Flask-Migrate
-    genres = db.Column(db.ARRAY(db.String()))
-    website = db.Column(db.String())
-    seeking_talent = db.Column(db.Boolean)
-    seeking_description = db.Column(db.String())
-
-    artists = db.relationship('Artist', secondary='show')
-    shows = db.relationship('Show')
-
-
-class Artist(db.Model):
-    __tablename__ = 'artist'
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String)
-    city = db.Column(db.String())
-    state = db.Column(db.String())
-    phone = db.Column(db.String())
-    genres = db.Column(db.ARRAY(db.String()))
-    image_link = db.Column(db.String())
-    facebook_link = db.Column(db.String())
-
-    # TODO: implement any missing fields, as a database migration using Flask-Migrate
-    website = db.Column(db.String())
-    seeking_venue = db.Column(db.Boolean)
-    seeking_description = db.Column(db.String())
-
-    venues = db.relationship('Venue', secondary='show')
-    shows = db.relationship('Show')
-
-
 # TODO Implement Show and Artist models, and complete all model relationships and properties, as a database migration.
-
-
-
 # ----------------------------------------------------------------------------#
 # Filters.
 # ----------------------------------------------------------------------------#
@@ -165,7 +96,9 @@ def show_venue(venue_id):
     # shows the venue page with the given venue_id
     # TODO: replace with real venue data from the venues table, using venue_id
     venue = Venue.query.get(venue_id)
-    venue_upcoming_shows = [show for show in venue.shows if show.start_time > datetime.today()]
+    # venue_upcoming_shows = [show for show in venue.shows if show.start_time > datetime.today()]
+    # Review: Use Join statement to retrieve Upcoming shows
+    venue_upcoming_shows = Show.query.filter_by(venue_id=venue_id).filter(Show.start_time > datetime.today())
 
     upcoming_shows = []
     for show in venue_upcoming_shows:
@@ -174,7 +107,11 @@ def show_venue(venue_id):
                                'artist_image_link': show.artist.image_link,
                                'start_time': show.start_time.isoformat()})
 
-    venue_past_shows = [show for show in venue.shows if show.start_time < datetime.today()]
+    # venue_past_shows = [show for show in venue.shows if show.start_time < datetime.today()]
+    # Review: Use Join statement to retrieve Past shows
+    # Since venue_id is used as foreign key to join tables Venue and Show, querying on venue_id should
+    # help us narrow down the list from Venues table
+    venue_past_shows = Show.query.filter_by(venue_id=venue_id).filter(Show.start_time < datetime.today())
 
     past_shows = []
     for show in venue_past_shows:
@@ -319,7 +256,12 @@ def show_artist(artist_id):
     # TODO: replace with real artist data from the artists table, using artist_id
     data = []
     artist = Artist.query.get(artist_id)
-    artist_upcoming_shows = [show for show in artist.shows if show.start_time > datetime.today()]
+    # artist_upcoming_shows = [show for show in artist.shows if show.start_time > datetime.today()]
+    # Review: Use Join statement to retrieve Upcoming shows
+    # Since artist_id is used as foreign key to join tables Artist and Show, querying on artist_id should
+    # help us narrow down the list from Artists table
+
+    artist_upcoming_shows = Show.query.filter_by(artist_id=artist_id).filter(Show.start_time > datetime.today())
 
     upcoming_shows = []
     for show in artist_upcoming_shows:
@@ -328,7 +270,8 @@ def show_artist(artist_id):
                                'venue_image_link': show.venue.image_link,
                                'start_time': show.start_time.isoformat()})
 
-    artist_past_shows = [show for show in artist.shows if show.start_time < datetime.today()]
+    # artist_past_shows = [show for show in artist.shows if show.start_time < datetime.today()]
+    artist_past_shows = Show.query.filter_by(artist_id=artist_id).filter(Show.start_time < datetime.today())
 
     past_shows = []
     for show in artist_past_shows:
